@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    command: >
+      postgres
+        -c wal_level=logical
+        -c max_replication_slots=4
+        -c max_wal_senders=4
+    environment:
+      POSTGRES_USER: replicator
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: cdc_source
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./sql/source_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+
+  cdc:
+    build: .
+    depends_on:
+      - postgres
+      - mongo
+    environment:
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DATABASE: cdc_source
+      PG_USER: replicator
+      PG_PASSWORD: changeme
+      PG_SLOT_NAME: cdc_slot
+      PG_PUBLICATION: cdc_pub
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DATABASE: cdc_sink
